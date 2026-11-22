@@ -71,6 +71,16 @@ def parse_timestamp(value):
     return datetime.now()
 
 
+@app.after_request
+def add_no_cache_headers(response):
+    """Ensure dynamic API responses are never cached by browser or proxies."""
+    if request.path.startswith("/api/") or request.path == "/upload":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 # ----------------------------------------------------------------------
 # WEB DASHBOARD & HEALTH ROUTES
 # ----------------------------------------------------------------------
@@ -154,7 +164,9 @@ def upload_image():
     original_dir.mkdir(parents=True, exist_ok=True)
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
-    file_timestamp = capture_time.strftime("%Y%m%d_%H%M%S_%f")
+    now_time = datetime.now()
+    unique_suffix = now_time.strftime("%f")[:4]
+    file_timestamp = f"{capture_time.strftime('%Y%m%d_%H%M%S')}_{unique_suffix}"
     image_filename = f"{camera_id}_{file_timestamp}.jpg"
     image_path = original_dir / image_filename
 
@@ -166,7 +178,7 @@ def upload_image():
         "camera_id": camera_id,
         "image_filename": image_filename,
         "capture_timestamp": timestamp_text or capture_time.isoformat(timespec="seconds"),
-        "server_received_timestamp": datetime.now().isoformat(timespec="seconds"),
+        "server_received_timestamp": now_time.isoformat(timespec="seconds"),
         "latitude": latitude,
         "longitude": longitude,
         "gps_valid": gps_valid,
@@ -185,6 +197,8 @@ def upload_image():
         proc = get_image_processor()
         detection_result = proc.process_single_image(image_path, metadata_path)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"[Upload Error] Detection failed on {image_filename}: {e}")
 
     print("\n--------------------------------")

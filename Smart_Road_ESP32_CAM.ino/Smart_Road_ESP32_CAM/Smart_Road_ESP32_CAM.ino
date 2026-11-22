@@ -23,7 +23,7 @@ const bool USE_CLOUD_SERVER = true;
 
 // Your deployed Railway project endpoint (e.g., https://smart-road-production.up.railway.app/upload)
 // Replace with your actual Railway URL after deploying
-const char* CLOUD_SERVER_URL = "https://your-project.up.railway.app/upload";
+const char* CLOUD_SERVER_URL = "https://smartroadmanagement-production.up.railway.app/upload";
 
 // Local server fallback URL (if discovery is bypassed)
 String serverURL = "";

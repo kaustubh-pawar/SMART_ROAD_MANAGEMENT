@@ -396,8 +396,14 @@
           </div>
         </div>
 
-        <div class="text-xs text-slate-400" id="gallery-count-badge">
-          Showing 0 captures
+        <div class="flex items-center space-x-3">
+          <button onclick="refreshGallery()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 transition border border-slate-700/80 shadow-sm active:scale-95">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-sky-400"></i>
+            <span>Refresh</span>
+          </button>
+          <div class="text-xs text-slate-400" id="gallery-count-badge">
+            Showing 0 captures
+          </div>
         </div>
       </div>
 
@@ -585,6 +591,14 @@
           <!-- Defect Breakdown Cards -->
           <div id="manual-defect-breakdown" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <!-- Injected via JavaScript -->
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center justify-end space-x-3 pt-2">
+            <button type="button" onclick="switchTab('gallery')" class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center space-x-2 shadow-md shadow-sky-600/20 transition active:scale-95">
+              <span>View in Inspections Gallery</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
           </div>
         </div>
 
@@ -908,6 +922,7 @@ const char* CAMERA_ID = "CAM_001";
         setTimeout(initOrUpdateMap, 200);
       } else if (tabId === 'gallery') {
         renderGallery();
+        fetchAllData().then(() => renderGallery());
       } else if (tabId === 'reports') {
         fetchReports();
       }
@@ -918,9 +933,10 @@ const char* CAMERA_ID = "CAM_001";
     // Fetch live statistics and records
     async function fetchAllData() {
       try {
+        const cacheBuster = Date.now();
         const [statsRes, recordsRes] = await Promise.all([
-          fetch('/api/stats'),
-          fetch('/api/records')
+          fetch(`/api/stats?_t=${cacheBuster}`, { cache: 'no-store' }),
+          fetch(`/api/records?_t=${cacheBuster}`, { cache: 'no-store' })
         ]);
 
         if (statsRes.ok) {
@@ -1101,13 +1117,13 @@ const char* CAMERA_ID = "CAM_001";
     // Render Gallery
     function renderGallery() {
       const grid = document.getElementById('gallery-grid');
-      const sevFilter = document.getElementById('gallery-filter-sev').value;
-      const camFilter = document.getElementById('gallery-filter-cam').value;
+      const sevFilter = (document.getElementById('gallery-filter-sev').value || 'ALL').trim();
+      const camFilter = (document.getElementById('gallery-filter-cam').value || 'ALL').trim();
       const viewMode = document.getElementById('gallery-view-mode').value;
 
       let filtered = allRecords.filter(r => {
-        if (sevFilter !== 'ALL' && r.severity !== sevFilter) return false;
-        if (camFilter !== 'ALL' && r.camera_id !== camFilter) return false;
+        if (sevFilter !== 'ALL' && (r.severity || '').toLowerCase() !== sevFilter.toLowerCase()) return false;
+        if (camFilter !== 'ALL' && (r.camera_id || '').toUpperCase() !== camFilter.toUpperCase()) return false;
         return true;
       });
 
@@ -1173,6 +1189,13 @@ const char* CAMERA_ID = "CAM_001";
       }).join('');
 
       lucide.createIcons();
+    }
+
+    async function refreshGallery() {
+      showToast('Refreshing inspection records...', 'info');
+      await fetchAllData();
+      renderGallery();
+      showToast('Gallery refreshed!', 'success');
     }
 
     // Leaflet Interactive Map
@@ -1560,7 +1583,18 @@ const char* CAMERA_ID = "CAM_001";
           const result = await res.json();
           showToast('Analysis completed successfully!', 'success');
           displayManualResults(result);
-          fetchAllData();
+
+          // Immediately inject into local allRecords so it shows without delay
+          if (result && result.image_filename) {
+            allRecords = allRecords.filter(r => r.image_filename !== result.image_filename);
+            allRecords.unshift(result);
+          }
+          renderRecentTable(allRecords.slice(0, 10));
+          if (leafletMap) updateMapMarkers();
+
+          // Sync fresh server records & update gallery
+          await fetchAllData();
+          renderGallery();
         } else {
           const err = await res.json();
           showToast(`Upload failed: ${err.error || 'Server error'}`, 'error');

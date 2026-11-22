@@ -19,22 +19,59 @@ REPORTS_DIR = BASE_DIR / "REPORTS"
 def get_all_detection_records(base_dir: Path = BASE_DIR) -> list:
     """
     Search and load all detection JSON records across all cameras and dates.
+    Also recovers any pending metadata records so newly ingested images are never lost.
+    Sorts with newest uploads first (by file modification time and timestamp).
     """
     base_dir = Path(base_dir)
     detection_files = list(base_dir.glob("**/detections/*.json"))
     records = []
+    processed_stems = set()
 
     for df in detection_files:
         try:
             data = json.loads(df.read_text(encoding="utf-8"))
             data["_file_path"] = str(df.relative_to(base_dir))
+            try:
+                data["_mtime"] = df.stat().st_mtime
+            except Exception:
+                data["_mtime"] = 0
             records.append(data)
+            if data.get("image_filename"):
+                processed_stems.add(Path(data["image_filename"]).stem)
         except Exception as e:
             print(f"[Report] Error reading {df}: {e}")
 
-    # Sort chronologically by capture or processed timestamp
+    # Fallback scan: include any metadata files not yet processed so they appear immediately in UI
+    for mf in base_dir.glob("**/metadata/*.json"):
+        if mf.stem not in processed_stems:
+            try:
+                mdata = json.loads(mf.read_text(encoding="utf-8"))
+                img_name = mdata.get("image_filename", "")
+                mdata["defect_count"] = 0
+                mdata["severity"] = "Good"
+                mdata["severity_score"] = 0.0
+                mdata["original_image_path"] = mdata.get("image_path", "")
+                mdata["processed_image_path"] = mdata.get("image_path", "")
+                mdata["summary"] = {"pothole": 0, "longitudinal_crack": 0, "transverse_crack": 0, "alligator_crack": 0}
+                mdata["detections"] = []
+                try:
+                    mdata["_mtime"] = mf.stat().st_mtime
+                except Exception:
+                    mdata["_mtime"] = 0
+                records.append(mdata)
+                processed_stems.add(mf.stem)
+            except Exception as e:
+                print(f"[Report] Error reading pending metadata {mf}: {e}")
+
+    # Sort so that newly uploaded/analyzed frames always appear FIRST:
+    # 1. Primary: file mtime (newest file created/written on server is at top)
+    # 2. Secondary: capture or processed timestamp string
     records.sort(
-        key=lambda r: r.get("capture_timestamp") or r.get("processed_timestamp") or "",
+        key=lambda r: (
+            r.get("_mtime", 0),
+            r.get("capture_timestamp") or "",
+            r.get("processed_timestamp") or ""
+        ),
         reverse=True
     )
     return records

@@ -331,17 +331,29 @@ class DefectDetector:
         - Depressed cavity detection (potholes)
         """
         h, w = image.shape[:2]
+        if h < 32 or w < 32:
+            return [], None
+
         detections = []
 
         # 1. Road Region of Interest (ROI) & Watermark Suppression
         gray_full = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         bottom_y = h
-        if gray_full[-15:, :].mean() < 22:
+        if h > 60 and gray_full[-15:, :].mean() < 22:
             bottom_y = int(h * 0.94)
 
-        roi_top = int(h * 0.28)
+        roi_top = int(h * 0.28) if h > 60 else 0
+        if bottom_y <= roi_top + 20:
+            roi_top = 0
+            bottom_y = h
+
         road_gray = gray_full[roi_top:bottom_y, :]
         rh, rw = road_gray.shape
+        if road_gray.size == 0 or rh < 20 or rw < 20:
+            road_gray = gray_full
+            rh, rw = road_gray.shape
+            roi_top = 0
+            bottom_y = h
 
         # Filter out completely underexposed / dark lens-cap frames
         if road_gray.mean() < 22 and road_gray.std() < 16:
@@ -350,10 +362,13 @@ class DefectDetector:
         total_road_pixels = rh * rw
 
         # 2. Bilateral filter
-        filtered = cv2.bilateralFilter(road_gray, d=7, sigmaColor=35, sigmaSpace=35)
+        filtered = cv2.bilateralFilter(road_gray, d=5, sigmaColor=35, sigmaSpace=35)
 
         # 3. Pothole Detection (Depressed localized cavities)
-        bg = cv2.GaussianBlur(filtered, (45, 45), 0)
+        k_blur = min(45, (min(rh, rw) // 2) * 2 - 1)
+        if k_blur < 3:
+            k_blur = 3
+        bg = cv2.GaussianBlur(filtered, (k_blur, k_blur), 0)
         depression = cv2.subtract(bg, filtered)
         _, dep_mask = cv2.threshold(depression, 22, 255, cv2.THRESH_BINARY)
         dep_mask = cv2.medianBlur(dep_mask, 5)
@@ -661,7 +676,12 @@ def process_single_image(image_path: Path, metadata_path: Path = None) -> dict:
     # Read original image
     image = cv2.imread(str(image_path))
     if image is None:
-        raise ValueError(f"OpenCV could not decode image: {image_path}")
+        try:
+            from PIL import Image
+            pil_img = Image.open(str(image_path)).convert("RGB")
+            image = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        except Exception:
+            raise ValueError(f"OpenCV could not decode image: {image_path}")
 
     # Load metadata if exists
     metadata = {}
