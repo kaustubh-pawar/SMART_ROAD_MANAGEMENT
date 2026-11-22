@@ -1,0 +1,18 @@
+{
+    "camera_id": "CAM_001",
+    "image_filename": "CAM_001_20261122_170837_000000.jpg",
+    "capture_timestamp": "2026-11-22T17:08:37",
+    "server_received_timestamp": "2026-11-22T17:08:38",
+    "latitude": "NA",
+    "longitude": "NA",
+    "gps_valid": false,
+    "image_size_bytes": 28147,
+    "image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/original/CAM_001_20261122_170837_000000.jpg",
+    "processing_status": "completed",
+    "processed_timestamp": "2026-11-22T19:56:24",
+    "severity": "Good",
+    "severity_score": 0.1,
+    "defect_count": 0,
+    "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_170837_000000.jpg",
+    "detection_json_path": "CAM_001/2026/11_NOVEMBER/22_NOV/detections/CAM_001_20261122_170837_000000.json"
+}

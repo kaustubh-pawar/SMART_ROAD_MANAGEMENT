@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Road Management System | AI Defect Detection & Analytics</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              900: '#0c4a6e',
+            },
+            hazard: {
+              critical: '#ef4444',
+              poor: '#f97316',
+              fair: '#eab308',
+              good: '#22c55e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .glassmorphism {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    .pulse-dot {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulse-ring 1.8s infinite cubic-bezier(0.66, 0, 0, 1);
+    }
+    @keyframes pulse-ring {
+      to { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 glassmorphism">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Branding -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <i data-lucide="shield-alert" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+              SMART ROAD MANAGEMENT
+            </span>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-sky-950 text-sky-400 border border-sky-800">
+              v2.0
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">ESP32-CAM · GPS · OpenCV · YOLO Defect Detection</p>
+        </div>
+      </div>
+
+      <!-- Live Status & Mode -->
+      <div class="hidden md:flex items-center space-x-4">
+        <div class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-dot"></span>
+          <span id="server-status-pill">Server Online</span>
+          <span class="text-slate-600">|</span>
+          <span id="env-badge" class="text-sky-400 font-medium">Railway / Local</span>
+        </div>
+
+        <button onclick="switchTab('upload')" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition shadow-sm">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+          <span>Manual Upload</span>
+        </button>
+
+        <button onclick="batchReprocessAll()" title="Process unprocessed captures" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Process All</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- TAB NAVIGATION BAR -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 border-t border-slate-800/60 overflow-x-auto custom-scrollbar">
+      <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-sky-500 text-sky-400 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <span>Dashboard</span>
+      </button>
+
+      <button onclick="switchTab('map')" id="tab-btn-map" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="map-pin" class="w-4 h-4"></i>
+        <span>GPS Defect Map</span>
+      </button>
+
+      <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="image" class="w-4 h-4"></i>
+        <span>Inspections Gallery</span>
+      </button>
+
+      <button onclick="switchTab('reports')" id="tab-btn-reports" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="file-text" class="w-4 h-4"></i>
+        <span>Reports & Analytics</span>
+      </button>
+
+      <button onclick="switchTab('upload')" id="tab-btn-upload" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span>Manual Image Upload</span>
+      </button>
+
+      <button onclick="switchTab('hardware')" id="tab-btn-hardware" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 whitespace-nowrap">
+        <i data-lucide="cpu" class="w-4 h-4"></i>
+        <span>Hardware & Railway Guide</span>
+      </button>
+    </div>
+  </header>
+
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: OVERVIEW & DASHBOARD -->
+    <!-- ============================================================== -->
+    <div id="tab-overview" class="tab-content space-y-6">
+      
+      <!-- Top Alert Banner if needed -->
+      <div id="quick-alert" class="hidden rounded-xl bg-amber-950/60 border border-amber-800/80 p-4 flex items-start space-x-3">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+        <div class="flex-1 text-sm text-amber-200" id="quick-alert-msg"></div>
+        <button onclick="document.getElementById('quick-alert').classList.add('hidden')" class="text-amber-400 hover:text-amber-300">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- KPI METRIC CARDS -->
+      <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        
+        <!-- Total Captures -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Total Captures</span>
+            <i data-lucide="camera" class="w-4 h-4 text-sky-400"></i>
+          </div>
+          <div class="text-2xl font-bold text-white" id="stat-total-captures">--</div>
+          <p class="text-xs text-slate-400 mt-1">Processed road frames</p>
+        </div>
+
+        <!-- Total Defects -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Total Defects</span>
+            <i data-lucide="alert-octagon" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div class="text-2xl font-bold text-amber-400" id="stat-total-defects">--</div>
+          <p class="text-xs text-slate-400 mt-1" id="stat-defect-density">-- defects / image</p>
+        </div>
+
+        <!-- Potholes -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Potholes</span>
+            <i data-lucide="disc" class="w-4 h-4 text-rose-500"></i>
+          </div>
+          <div class="text-2xl font-bold text-rose-500" id="stat-potholes">--</div>
+          <p class="text-xs text-rose-400/80 mt-1">High-risk cavities</p>
+        </div>
+
+        <!-- Cracks -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Road Cracks</span>
+            <i data-lucide="git-commit" class="w-4 h-4 text-orange-400"></i>
+          </div>
+          <div class="text-2xl font-bold text-orange-400" id="stat-cracks">--</div>
+          <p class="text-xs text-slate-400 mt-1">Long / Trans / Mesh</p>
+        </div>
+
+        <!-- Critical Roads -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Critical Zones</span>
+            <i data-lucide="flame" class="w-4 h-4 text-red-500"></i>
+          </div>
+          <div class="text-2xl font-bold text-red-500" id="stat-critical-count">--</div>
+          <p class="text-xs text-red-400/80 mt-1">Immediate repair</p>
+        </div>
+
+        <!-- GPS Geotagged -->
+        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 shadow-sm hover:border-slate-700 transition">
+          <div class="flex items-center justify-between text-slate-400 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">GPS Fixed</span>
+            <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div class="text-2xl font-bold text-emerald-400" id="stat-gps-count">--</div>
+          <p class="text-xs text-slate-400 mt-1">Mapped coordinates</p>
+        </div>
+
+      </div>
+
+      <!-- CHARTS & SUMMARY SECTION -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Defect Types Chart -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-sky-400"></i>
+              <span>Defect Class Distribution</span>
+            </h3>
+            <span class="text-xs text-slate-500">RDD2022</span>
+          </div>
+          <div class="h-56 relative flex items-center justify-center">
+            <canvas id="chart-defect-types"></canvas>
+          </div>
+        </div>
+
+        <!-- Severity Distribution Chart -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-amber-400"></i>
+              <span>Road Condition Severity</span>
+            </h3>
+            <span class="text-xs text-slate-500">Quality Index</span>
+          </div>
+          <div class="h-56 relative flex items-center justify-center">
+            <canvas id="chart-severity"></canvas>
+          </div>
+        </div>
+
+        <!-- Quick Upload Widget & Mini Hotspots -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+                <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+                <span>Quick Actions</span>
+              </h3>
+            </div>
+            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+              Upload any road photo directly to run OpenCV analysis and YOLO defect classification instantly.
+            </p>
+            <button onclick="switchTab('upload')" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-2 shadow-lg shadow-sky-600/20 transition">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              <span>Open Manual Image Analyzer</span>
+            </button>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-800">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span>Hardware Receiver Endpoint:</span>
+            </div>
+            <div class="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-sky-300 break-all select-all" id="endpoint-url-box">
+              POST /upload
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RECENT INSPECTIONS TABLE -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-semibold text-slate-200 text-base">Recent Road Inspections</h3>
+            <p class="text-xs text-slate-400">Real-time detections captured by ESP32-CAM or uploaded manually</p>
+          </div>
+          <button onclick="switchTab('gallery')" class="text-xs font-medium text-sky-400 hover:text-sky-300 flex items-center space-x-1">
+            <span>View Full Gallery</span>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold">
+              <tr>
+                <th class="py-3 px-4">Preview</th>
+                <th class="py-3 px-4">Image / Camera</th>
+                <th class="py-3 px-4">Timestamp</th>
+                <th class="py-3 px-4">GPS Location</th>
+                <th class="py-3 px-4">Defects</th>
+                <th class="py-3 px-4">Road Condition</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recent-table-body" class="divide-y divide-slate-800 text-slate-300">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-500">
+                  <div class="inline-block animate-spin w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full mr-2 align-middle"></div>
+                  Loading recent inspections...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: INTERACTIVE GPS DEFECT MAP -->
+    <!-- ============================================================== -->
+    <div id="tab-map" class="tab-content hidden space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center space-x-2">
+            <i data-lucide="map" class="w-5 h-5 text-sky-400"></i>
+            <span>Interactive Road Defect Map</span>
+          </h2>
+          <p class="text-xs text-slate-400">Geographic mapping of potholes, cracks, and hazard points logged via NEO-6M GPS</p>
+        </div>
+        
+        <!-- Severity legend -->
+        <div class="flex items-center space-x-3 text-xs">
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span><span class="text-slate-300">Critical</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span><span class="text-slate-300">Poor</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span><span class="text-slate-300">Fair</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="text-slate-300">Good</span></span>
+        </div>
+      </div>
+
+      <!-- Map Container -->
+      <div class="rounded-2xl border border-slate-800 overflow-hidden relative" style="height: 620px;">
+        <div id="leaflet-map" class="w-full h-full bg-slate-950"></div>
+      </div>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 3: INSPECTION GALLERY -->
+    <!-- ============================================================== -->
+    <div id="tab-gallery" class="tab-content hidden space-y-5">
+      
+      <!-- Filter Bar -->
+      <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center space-x-2">
+            <label class="text-xs text-slate-400">Severity:</label>
+            <select id="gallery-filter-sev" onchange="renderGallery()" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200">
+              <option value="ALL">All Severities</option>
+              <option value="Critical">Critical</option>
+              <option value="Poor">Poor</option>
+              <option value="Fair">Fair</option>
+              <option value="Good">Good</option>
+            </select>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <label class="text-xs text-slate-400">Camera:</label>
+            <select id="gallery-filter-cam" onchange="renderGallery()" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200">
+              <option value="ALL">All Sources</option>
+              <option value="CAM_001">CAM_001</option>
+              <option value="MANUAL_WEB">Manual Uploads</option>
+            </select>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <label class="text-xs text-slate-400">Mode:</label>
+            <select id="gallery-view-mode" onchange="renderGallery()" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200">
+              <option value="processed">Show Processed (AI Annotated)</option>
+              <option value="original">Show Original Images</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="text-xs text-slate-400" id="gallery-count-badge">
+          Showing 0 captures
+        </div>
+      </div>
+
+      <!-- Gallery Grid -->
+      <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Injected via JavaScript -->
+      </div>
+
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 4: REPORTS & ANALYTICS -->
+    <!-- ============================================================== -->
+    <div id="tab-reports" class="tab-content hidden space-y-6">
+      
+      <!-- Report Generation Header Card -->
+      <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="file-check-2" class="w-5 h-5 text-indigo-400"></i>
+            <span>Road Condition Reports Center</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1 max-w-xl">
+            Generate audit-ready road inspection reports for municipal engineers and maintenance contractors.
+            Supports instant CSV and JSON export with GPS coordinates and defect coordinates.
+          </p>
+        </div>
+
+        <!-- Report Generation Buttons -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="triggerGenerateReport('daily')" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs flex items-center space-x-1.5 shadow-sm transition">
+            <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+            <span>Generate Daily Report</span>
+          </button>
+          <button onclick="triggerGenerateReport('weekly')" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center space-x-1.5 shadow-sm transition">
+            <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+            <span>Generate Weekly Report</span>
+          </button>
+          <button onclick="triggerGenerateReport('monthly')" class="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center space-x-1.5 shadow-sm transition">
+            <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i>
+            <span>Generate Monthly Report</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Generated Reports List Table -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+        <div class="p-5 border-b border-slate-800">
+          <h3 class="font-semibold text-slate-200 text-sm">Archived & Exportable Reports</h3>
+          <p class="text-xs text-slate-400">Download formatted CSV spreadsheets or JSON payloads</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800 uppercase tracking-wider font-semibold">
+              <tr>
+                <th class="py-3 px-4">Report ID</th>
+                <th class="py-3 px-4">Period</th>
+                <th class="py-3 px-4">Images Analyzed</th>
+                <th class="py-3 px-4">Total Defects</th>
+                <th class="py-3 px-4">Overall Condition</th>
+                <th class="py-3 px-4">Generated Timestamp</th>
+                <th class="py-3 px-4 text-right">Downloads</th>
+              </tr>
+            </thead>
+            <tbody id="reports-table-body" class="divide-y divide-slate-800 text-slate-300">
+              <tr>
+                <td colspan="7" class="py-8 text-center text-slate-500">Loading reports...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 5: MANUAL IMAGE UPLOAD & ANALYZER -->
+    <!-- ============================================================== -->
+    <div id="tab-upload" class="tab-content hidden space-y-6">
+      
+      <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <i data-lucide="upload-cloud" class="w-5 h-5 text-sky-400"></i>
+          <span>Manual Road Defect Analysis</span>
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          Upload any road surface photograph from your phone or computer to test defect detection,
+          extract bounding boxes, assess road severity, and save to the inspection repository.
+        </p>
+
+        <!-- Upload Form Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          
+          <!-- Drop Zone & File Selection -->
+          <div class="lg:col-span-2 space-y-4">
+            <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition bg-slate-950/40">
+              <input type="file" id="manual-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+              <div class="w-14 h-14 rounded-2xl bg-sky-950/80 border border-sky-800 text-sky-400 flex items-center justify-center mb-3">
+                <i data-lucide="image-plus" class="w-7 h-7"></i>
+              </div>
+              <p class="text-sm font-semibold text-slate-200 text-center">
+                Click to browse or drag and drop a road image here
+              </p>
+              <p class="text-xs text-slate-500 mt-1">JPEG, PNG, or WebP up to 10 MB</p>
+
+              <!-- Selected File Preview -->
+              <div id="selected-file-preview" class="hidden mt-4 w-full flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                  <img id="preview-thumb" src="" class="w-12 h-12 object-cover rounded-lg border border-slate-700">
+                  <div class="overflow-hidden">
+                    <p id="preview-name" class="text-xs font-semibold text-slate-200 truncate"></p>
+                    <p id="preview-size" class="text-xs text-slate-400"></p>
+                  </div>
+                </div>
+                <button type="button" onclick="clearSelectedFile(event)" class="text-slate-400 hover:text-rose-400 p-1">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Parameters & Geolocation -->
+          <div class="space-y-4 p-5 rounded-2xl bg-slate-950 border border-slate-800">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Metadata & Geotagging</h4>
+            
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Source Camera ID</label>
+              <input type="text" id="manual-cam-id" value="MANUAL_WEB" class="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-sky-500">
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-medium text-slate-400">GPS Coordinates (Optional)</label>
+                <button type="button" onclick="useBrowserLocation()" class="text-xs text-sky-400 hover:text-sky-300 flex items-center space-x-1">
+                  <i data-lucide="crosshair" class="w-3 h-3"></i>
+                  <span>Use Device GPS</span>
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="text" id="manual-lat" placeholder="Latitude (e.g. 18.5925)" class="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-sky-500">
+                <input type="text" id="manual-lng" placeholder="Longitude (e.g. 74.0021)" class="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-sky-500">
+              </div>
+            </div>
+
+            <button type="button" id="btn-submit-upload" onclick="submitManualUpload()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-sky-600/25 transition">
+              <i data-lucide="scan" class="w-4 h-4"></i>
+              <span>Upload & Run Defect Analysis</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Live Analysis Results (Hidden until upload) -->
+        <div id="manual-results-section" class="hidden mt-8 pt-8 border-t border-slate-800 space-y-5">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-white text-base flex items-center space-x-2">
+              <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+              <span>Analysis Results</span>
+            </h3>
+            <div id="manual-severity-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+              --
+            </div>
+          </div>
+
+          <!-- Comparison View: Original vs Processed -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <p class="text-xs font-semibold text-slate-400">Original Road Image</p>
+              <div class="rounded-xl overflow-hidden border border-slate-800 bg-black aspect-video flex items-center justify-center">
+                <img id="manual-result-orig" class="w-full h-full object-contain" src="">
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <p class="text-xs font-semibold text-slate-400">AI Processed (Defects Annotated)</p>
+              <div class="rounded-xl overflow-hidden border border-slate-800 bg-black aspect-video flex items-center justify-center">
+                <img id="manual-result-proc" class="w-full h-full object-contain" src="">
+              </div>
+            </div>
+          </div>
+
+          <!-- Defect Breakdown Cards -->
+          <div id="manual-defect-breakdown" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TAB 6: HARDWARE & RAILWAY CLOUD GUIDE -->
+    <!-- ============================================================== -->
+    <div id="tab-hardware" class="tab-content hidden space-y-6">
+      
+      <!-- Railway Cloud Deployment Banner -->
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-900/60">
+        <div class="flex items-center space-x-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500 text-indigo-400 flex items-center justify-center">
+            <i data-lucide="cloud" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-base">Railway Cloud Deployment Ready</h3>
+            <p class="text-xs text-indigo-300">How to deploy to Railway and enable ESP32-CAMs & any other device to connect from anywhere</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed max-w-3xl">
+          When deployed on Railway, this server receives an automatic global HTTPS domain (e.g., <code class="text-sky-300 bg-slate-950 px-1.5 py-0.5 rounded">https://smart-road.up.railway.app</code>).
+          The ESP32-CAM firmware in <code class="text-sky-300 bg-slate-950 px-1.5 py-0.5 rounded">Smart_Road_ESP32_CAM.ino</code> is pre-configured with cloud URL support,
+          allowing cameras on any Wi-Fi hotspot or mobile 4G/5G connection to upload road images and GPS data directly to Railway.
+        </p>
+      </div>
+
+      <!-- Step-by-Step Deployment Guide -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Railway Steps -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+          <h4 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+            <i data-lucide="rocket" class="w-4 h-4 text-sky-400"></i>
+            <span>How to Deploy to Railway (3 Easy Steps)</span>
+          </h4>
+          
+          <div class="space-y-3 text-xs text-slate-300">
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span class="font-bold text-sky-400 block mb-1">Step 1: Push Project to GitHub</span>
+              <code class="text-slate-400 font-mono block">git add . && git commit -m "Deploy Smart Road System" && git push</code>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span class="font-bold text-sky-400 block mb-1">Step 2: Connect Repository on Railway</span>
+              <p class="text-slate-400">Open <strong class="text-white">railway.app</strong>, click "New Project" → "Deploy from GitHub repo" → select this repository. Railway automatically reads <code class="text-sky-300">Procfile</code> and <code class="text-sky-300">railway.json</code>.</p>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span class="font-bold text-sky-400 block mb-1">Step 3: Generate Public Domain</span>
+              <p class="text-slate-400">In Railway project settings, click <strong class="text-white">"Generate Domain"</strong>. You will get a URL like: <code class="text-emerald-300 font-mono">https://smart-road-production.up.railway.app</code>.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ESP32-CAM Configuration -->
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+          <h4 class="font-semibold text-slate-200 text-sm flex items-center space-x-2">
+            <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i>
+            <span>ESP32-CAM Firmware Configuration</span>
+          </h4>
+
+          <p class="text-xs text-slate-300 leading-relaxed">
+            In <code class="text-sky-300 bg-slate-950 px-1.5 py-0.5 rounded">Smart_Road_ESP32_CAM.ino</code>, set:
+          </p>
+
+          <pre class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-sky-300 overflow-x-auto">
+// Set to true to connect to your Railway deployment
+const bool USE_CLOUD_SERVER = true; 
+const char* CLOUD_SERVER_URL = "https://your-project.up.railway.app/upload";
+
+// Camera Identifier (CAM_001, CAM_002 for fleet)
+const char* CAMERA_ID = "CAM_001";
+          </pre>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1">
+            <span class="font-bold text-slate-200 block">Multiple Devices Support:</span>
+            <p class="text-slate-400">
+              You can deploy 5, 10, or more ESP32-CAMs on different vehicles. Give each device a unique ID (<code class="text-sky-300">CAM_001</code>, <code class="text-sky-300">CAM_002</code>, etc.). The server organizes folders and reports per device automatically!
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Hardware Pinout & Wiring Table -->
+      <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+        <h4 class="font-semibold text-slate-200 text-sm mb-3 flex items-center space-x-2">
+          <i data-lucide="git-fork" class="w-4 h-4 text-amber-400"></i>
+          <span>Hardware Pinout & Connections</span>
+        </h4>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="font-bold text-slate-200 block mb-1">NEO-6M GPS Module</span>
+            <ul class="text-slate-400 space-y-1 font-mono">
+              <li>GPS TX → ESP32 GPIO 13 (RX)</li>
+              <li>GPS RX → ESP32 GPIO 14 (TX)</li>
+              <li>GPS VCC → 3.3V / 5V</li>
+              <li>GPS GND → GND</li>
+            </ul>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="font-bold text-slate-200 block mb-1">Push Button (Capture Trigger)</span>
+            <ul class="text-slate-400 space-y-1 font-mono">
+              <li>Terminal 1 → ESP32 GPIO 2</li>
+              <li>Terminal 2 → GND</li>
+              <li>Internal pull-up enabled</li>
+              <li>Press reads LOW</li>
+            </ul>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="font-bold text-slate-200 block mb-1">Power & Flashing (FTDI)</span>
+            <ul class="text-slate-400 space-y-1 font-mono">
+              <li>FTDI TX → GPIO 3 (U0R)</li>
+              <li>FTDI RX → GPIO 1 (U0T)</li>
+              <li>Flash: GPIO 0 to GND</li>
+              <li>Run: GPIO 0 disconnected</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <!-- ============================================================== -->
+  <!-- INSPECTION DETAIL MODAL -->
+  <!-- ============================================================== -->
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="w-full max-w-4xl max-h-[92vh] rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden flex flex-col shadow-2xl">
+      
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <span id="modal-severity-badge" class="px-2.5 py-1 text-xs font-bold rounded-lg uppercase">--</span>
+          <div>
+            <h3 id="modal-title" class="font-bold text-white text-sm">Inspection Detail</h3>
+            <p id="modal-subtitle" class="text-xs text-slate-400"></p>
+          </div>
+        </div>
+        <button onclick="closeDetailModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+        
+        <!-- Toggle View Mode in Modal -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <button id="modal-btn-proc" onclick="setModalImageView('processed')" class="px-3 py-1 text-xs font-semibold rounded-lg bg-sky-600 text-white">
+              Annotated (Processed)
+            </button>
+            <button id="modal-btn-orig" onclick="setModalImageView('original')" class="px-3 py-1 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">
+              Original Capture
+            </button>
+          </div>
+          <a id="modal-direct-link" href="#" target="_blank" class="text-xs text-sky-400 hover:underline flex items-center space-x-1">
+            <span>Open Full Image</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+          </a>
+        </div>
+
+        <!-- Main Image Display -->
+        <div class="rounded-xl overflow-hidden border border-slate-800 bg-black flex items-center justify-center max-h-[460px]">
+          <img id="modal-main-img" src="" class="w-full max-h-[460px] object-contain">
+        </div>
+
+        <!-- Metadata & Stats Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-400 block">Total Defects</span>
+            <span id="modal-stat-defects" class="text-base font-bold text-white">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-400 block">Severity Score</span>
+            <span id="modal-stat-score" class="text-base font-bold text-amber-400">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-400 block">GPS Coordinates</span>
+            <span id="modal-stat-gps" class="text-slate-200 font-mono truncate block">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-400 block">Detection Engine</span>
+            <span id="modal-stat-engine" class="text-slate-200 capitalize">--</span>
+          </div>
+        </div>
+
+        <!-- Detected Defects Table -->
+        <div class="rounded-xl border border-slate-800 overflow-hidden">
+          <div class="p-3 bg-slate-950/70 border-b border-slate-800 font-semibold text-xs text-slate-300">
+            Defect Coordinates & Bounding Boxes
+          </div>
+          <div class="overflow-x-auto max-h-48 custom-scrollbar">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase font-semibold">
+                <tr>
+                  <th class="py-2 px-3">#</th>
+                  <th class="py-2 px-3">Class</th>
+                  <th class="py-2 px-3">Confidence</th>
+                  <th class="py-2 px-3">Bounding Box [X1, Y1, X2, Y2]</th>
+                  <th class="py-2 px-3">Area (px)</th>
+                </tr>
+              </thead>
+              <tbody id="modal-defects-table" class="divide-y divide-slate-800 text-slate-300">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <button id="modal-reprocess-btn" onclick="reprocessModalItem()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center space-x-1.5 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Re-analyze Image</span>
+          </button>
+          <button id="modal-delete-btn" onclick="deleteModalItem()" class="px-3 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-xs text-rose-300 border border-rose-800/80 flex items-center space-x-1.5 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-400"></i>
+            <span>Delete Inspection</span>
+          </button>
+        </div>
+        <button onclick="closeDetailModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white">
+          Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- TOAST NOTIFICATION -->
+  <!-- ============================================================== -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-3 px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-xs shadow-2xl">
+    <i id="toast-icon" data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toast-message" class="text-slate-200">Action completed</span>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- FRONTEND JAVASCRIPT LOGIC -->
+  <!-- ============================================================== -->
+  <script>
+    // State Store
+    let allRecords = [];
+    let allReports = [];
+    let currentModalRecord = null;
+    let selectedManualFile = null;
+    let leafletMap = null;
+    let mapMarkersLayer = null;
+    let defectChart = null;
+    let severityChart = null;
+
+    // Severity styling helpers
+    const SEV_CONFIG = {
+      Critical: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', color: '#ef4444' },
+      Poor:     { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30', color: '#f97316' },
+      Fair:     { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30', color: '#eab308' },
+      Good:     { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', color: '#22c55e' }
+    };
+
+    // Initialize application
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initEndpointBox();
+      fetchAllData();
+      initDropZone();
+
+      // Refresh data periodically (every 15s)
+      setInterval(fetchAllData, 15000);
+    });
+
+    function initEndpointBox() {
+      const origin = window.location.origin;
+      const box = document.getElementById('endpoint-url-box');
+      if (box) {
+        box.textContent = `${origin}/upload`;
+      }
+      const envBadge = document.getElementById('env-badge');
+      if (envBadge) {
+        if (window.location.hostname.includes('railway') || window.location.hostname.includes('up.railway.app')) {
+          envBadge.textContent = 'Railway Cloud';
+          envBadge.className = 'text-purple-400 font-semibold';
+        } else {
+          envBadge.textContent = 'Local Server';
+        }
+      }
+    }
+
+    // Switch Tabs
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-sky-500', 'text-sky-400');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      const targetTab = document.getElementById(`tab-${tabId}`);
+      const targetBtn = document.getElementById(`tab-btn-${tabId}`);
+      if (targetTab) targetTab.classList.remove('hidden');
+      if (targetBtn) {
+        targetBtn.classList.add('border-sky-500', 'text-sky-400');
+        targetBtn.classList.remove('border-transparent', 'text-slate-400');
+      }
+
+      if (tabId === 'map') {
+        setTimeout(initOrUpdateMap, 200);
+      } else if (tabId === 'gallery') {
+        renderGallery();
+      } else if (tabId === 'reports') {
+        fetchReports();
+      }
+
+      lucide.createIcons();
+    }
+
+    // Fetch live statistics and records
+    async function fetchAllData() {
+      try {
+        const [statsRes, recordsRes] = await Promise.all([
+          fetch('/api/stats'),
+          fetch('/api/records')
+        ]);
+
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          updateKPIs(stats);
+          updateCharts(stats);
+        }
+
+        if (recordsRes.ok) {
+          const data = await recordsRes.json();
+          allRecords = data.records || [];
+          renderRecentTable(allRecords.slice(0, 10));
+          if (!document.getElementById('tab-gallery').classList.contains('hidden')) {
+            renderGallery();
+          }
+          if (leafletMap) {
+            updateMapMarkers();
+          }
+        }
+      } catch (err) {
+        console.error('Data fetch error:', err);
+      }
+    }
+
+    // Update KPI Metric Cards
+    function updateKPIs(stats) {
+      document.getElementById('stat-total-captures').textContent = stats.total_captures || 0;
+      document.getElementById('stat-total-defects').textContent = stats.total_defects || 0;
+      document.getElementById('stat-defect-density').textContent = `${stats.defect_density || 0} defects / image`;
+      document.getElementById('stat-potholes').textContent = stats.defects_by_class?.pothole || 0;
+      
+      const cracksCount = (stats.defects_by_class?.longitudinal_crack || 0) +
+                          (stats.defects_by_class?.transverse_crack || 0) +
+                          (stats.defects_by_class?.alligator_crack || 0);
+      document.getElementById('stat-cracks').textContent = cracksCount;
+      document.getElementById('stat-critical-count').textContent = stats.severity_breakdown?.Critical || 0;
+      document.getElementById('stat-gps-count').textContent = stats.gps_tagged_count || 0;
+    }
+
+    // Update Chart.js Charts
+    function updateCharts(stats) {
+      // Defect Types Chart (Donut)
+      const defectCtx = document.getElementById('chart-defect-types')?.getContext('2d');
+      if (defectCtx) {
+        const defectData = [
+          stats.defects_by_class?.pothole || 0,
+          stats.defects_by_class?.longitudinal_crack || 0,
+          stats.defects_by_class?.transverse_crack || 0,
+          stats.defects_by_class?.alligator_crack || 0
+        ];
+
+        if (defectChart) {
+          defectChart.data.datasets[0].data = defectData;
+          defectChart.update();
+        } else {
+          defectChart = new Chart(defectCtx, {
+            type: 'doughnut',
+            data: {
+              labels: ['Potholes', 'Longitudinal Cracks', 'Transverse Cracks', 'Alligator Cracks'],
+              datasets: [{
+                data: defectData,
+                backgroundColor: ['#ef4444', '#facc15', '#06b6d4', '#f97316'],
+                borderWidth: 0
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, font: { size: 10 } } }
+              },
+              cutout: '68%'
+            }
+          });
+        }
+      }
+
+      // Severity Distribution Chart (Bar)
+      const sevCtx = document.getElementById('chart-severity')?.getContext('2d');
+      if (sevCtx) {
+        const sevData = [
+          stats.severity_breakdown?.Good || 0,
+          stats.severity_breakdown?.Fair || 0,
+          stats.severity_breakdown?.Poor || 0,
+          stats.severity_breakdown?.Critical || 0
+        ];
+
+        if (severityChart) {
+          severityChart.data.datasets[0].data = sevData;
+          severityChart.update();
+        } else {
+          severityChart = new Chart(sevCtx, {
+            type: 'bar',
+            data: {
+              labels: ['Good', 'Fair', 'Poor', 'Critical'],
+              datasets: [{
+                label: 'Frames',
+                data: sevData,
+                backgroundColor: ['#22c55e', '#eab308', '#f97316', '#ef4444'],
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { color: '#94a3b8', font: { size: 10 }, precision: 0 }, grid: { color: '#1e293b' } }
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Render Recent Table
+    function renderRecentTable(records) {
+      const tbody = document.getElementById('recent-table-body');
+      if (!tbody) return;
+
+      if (!records || records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">No inspections recorded yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map(r => {
+        const sev = r.severity || 'Good';
+        const sc = SEV_CONFIG[sev] || SEV_CONFIG.Good;
+        const imgUrl = r.processed_image_path ? `/files/${r.processed_image_path}` : (r.original_image_path ? `/files/${r.original_image_path}` : '');
+        const gpsStr = (r.gps_valid && r.latitude !== 'NA') ? `${parseFloat(r.latitude).toFixed(4)}, ${parseFloat(r.longitude).toFixed(4)}` : 'No GPS Fix';
+
+        return `
+          <tr class="hover:bg-slate-950/60 transition cursor-pointer" onclick="openDetailModal('${r.image_filename}')">
+            <td class="py-3 px-4">
+              <div class="w-12 h-9 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden">
+                <img src="${imgUrl}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='https://placehold.co/100x75/0f172a/64748b?text=Img'">
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-semibold text-slate-200">${r.image_filename}</div>
+              <div class="text-[10px] text-slate-400">${r.camera_id || 'CAM_001'}</div>
+            </td>
+            <td class="py-3 px-4 text-slate-400">
+              ${(r.capture_timestamp || r.processed_timestamp || '').replace('T', ' ')}
+            </td>
+            <td class="py-3 px-4 font-mono text-[11px] ${r.gps_valid ? 'text-emerald-400' : 'text-slate-500'}">
+              ${gpsStr}
+            </td>
+            <td class="py-3 px-4">
+              <span class="font-bold ${r.defect_count > 0 ? 'text-amber-400' : 'text-slate-400'}">${r.defect_count}</span>
+              <span class="text-slate-500 text-[10px] block">
+                P:${r.summary?.pothole || 0} · C:${(r.summary?.longitudinal_crack || 0) + (r.summary?.transverse_crack || 0) + (r.summary?.alligator_crack || 0)}
+              </span>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${sc.bg} ${sc.text} border ${sc.border}">
+                ${sev} (${r.severity_score || 0})
+              </span>
+            </td>
+            <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
+              <button onclick="event.stopPropagation(); openDetailModal('${r.image_filename}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs">
+                Inspect
+              </button>
+              <button onclick="event.stopPropagation(); deleteCapture('${r.image_filename}')" title="Delete inspection" class="p-1 rounded bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 text-xs inline-flex items-center transition">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    // Render Gallery
+    function renderGallery() {
+      const grid = document.getElementById('gallery-grid');
+      const sevFilter = document.getElementById('gallery-filter-sev').value;
+      const camFilter = document.getElementById('gallery-filter-cam').value;
+      const viewMode = document.getElementById('gallery-view-mode').value;
+
+      let filtered = allRecords.filter(r => {
+        if (sevFilter !== 'ALL' && r.severity !== sevFilter) return false;
+        if (camFilter !== 'ALL' && r.camera_id !== camFilter) return false;
+        return true;
+      });
+
+      document.getElementById('gallery-count-badge').textContent = `Showing ${filtered.length} of ${allRecords.length} captures`;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-16 text-center text-slate-500">No inspections match filter criteria.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(r => {
+        const sev = r.severity || 'Good';
+        const sc = SEV_CONFIG[sev] || SEV_CONFIG.Good;
+        const imgPath = viewMode === 'processed' ? (r.processed_image_path || r.original_image_path) : (r.original_image_path || r.processed_image_path);
+        const imgUrl = `/files/${imgPath}`;
+
+        return `
+          <div class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-sm hover:border-slate-700 transition flex flex-col cursor-pointer group" onclick="openDetailModal('${r.image_filename}')">
+            <div class="relative aspect-video bg-black overflow-hidden">
+              <img src="${imgUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+              
+              <!-- Top Badges Overlay -->
+              <div class="absolute top-2 left-2 flex items-center space-x-1.5">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${sc.bg} ${sc.text} border ${sc.border} backdrop-blur-md">
+                  ${sev}
+                </span>
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-950/80 text-slate-300 border border-slate-700/80 backdrop-blur-md">
+                  ${r.defect_count} defects
+                </span>
+              </div>
+
+              <!-- Top Delete Button Overlay -->
+              <button onclick="event.stopPropagation(); deleteCapture('${r.image_filename}')" title="Delete inspection" class="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-950/85 hover:bg-rose-950 text-slate-400 hover:text-rose-400 border border-slate-700/80 backdrop-blur-md transition shadow-md">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+
+              ${r.gps_valid ? `
+                <div class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-700/80 text-[10px] font-mono flex items-center space-x-1 backdrop-blur-md">
+                  <i data-lucide="navigation" class="w-3 h-3"></i>
+                  <span>GPS</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+              <div>
+                <p class="text-xs font-semibold text-slate-200 truncate">${r.image_filename}</p>
+                <p class="text-[10px] text-slate-400">${(r.capture_timestamp || r.processed_timestamp || '').replace('T', ' ')}</p>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
+                <span>Score: <strong class="text-slate-200">${r.severity_score || 0}</strong></span>
+                <div class="flex items-center space-x-2">
+                  <button onclick="event.stopPropagation(); deleteCapture('${r.image_filename}')" title="Delete inspection" class="p-1 rounded hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <span class="text-sky-400 font-medium hover:underline">Inspect →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    // Leaflet Interactive Map
+    function initOrUpdateMap() {
+      if (!leafletMap) {
+        leafletMap = L.map('leaflet-map').setView([18.5925, 74.0021], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(leafletMap);
+
+        mapMarkersLayer = L.layerGroup().addTo(leafletMap);
+      } else {
+        leafletMap.invalidateSize();
+      }
+
+      updateMapMarkers();
+    }
+
+    function updateMapMarkers() {
+      if (!mapMarkersLayer) return;
+      mapMarkersLayer.clearLayers();
+
+      const validCoords = [];
+
+      allRecords.forEach(r => {
+        if (!r.gps_valid || r.latitude === 'NA' || r.longitude === 'NA') return;
+        const lat = parseFloat(r.latitude);
+        const lng = parseFloat(r.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        validCoords.push([lat, lng]);
+
+        const sev = r.severity || 'Good';
+        const color = SEV_CONFIG[sev]?.color || '#22c55e';
+        const imgUrl = `/files/${r.processed_image_path || r.original_image_path}`;
+
+        const marker = L.circleMarker([lat, lng], {
+          radius: 9,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.85
+        });
+
+        const popupHtml = `
+          <div style="font-family: Inter, sans-serif; font-size: 12px; color: #0f172a; width: 200px;">
+            <div style="font-weight: 700; margin-bottom: 4px;">${r.image_filename}</div>
+            <img src="${imgUrl}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>Condition:</span>
+              <strong style="color: ${color}">${sev} (${r.severity_score || 0})</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span>Defects:</span>
+              <strong>${r.defect_count}</strong>
+            </div>
+            <button onclick="openDetailModal('${r.image_filename}')" style="width: 100%; padding: 4px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+              Inspect Details
+            </button>
+          </div>
+        `;
+
+        marker.bindPopup(popupHtml);
+        mapMarkersLayer.addLayer(marker);
+      });
+
+      if (validCoords.length > 0 && leafletMap) {
+        leafletMap.fitBounds(L.latLngBounds(validCoords), { padding: [40, 40], maxZoom: 16 });
+      }
+    }
+
+    // Modal Details Inspector
+    function openDetailModal(filename) {
+      const record = allRecords.find(r => r.image_filename === filename);
+      if (!record) return;
+
+      currentModalRecord = record;
+      const modal = document.getElementById('detail-modal');
+
+      document.getElementById('modal-title').textContent = record.image_filename;
+      document.getElementById('modal-subtitle').textContent = `Camera: ${record.camera_id || 'CAM_001'} · Capture: ${(record.capture_timestamp || record.processed_timestamp || '').replace('T', ' ')}`;
+
+      const sev = record.severity || 'Good';
+      const sc = SEV_CONFIG[sev] || SEV_CONFIG.Good;
+      const sevBadge = document.getElementById('modal-severity-badge');
+      sevBadge.textContent = sev;
+      sevBadge.className = `px-2.5 py-1 text-xs font-bold rounded-lg uppercase ${sc.bg} ${sc.text} border ${sc.border}`;
+
+      document.getElementById('modal-stat-defects').textContent = record.defect_count || 0;
+      document.getElementById('modal-stat-score').textContent = `${record.severity_score || 0} / 100`;
+      
+      const gpsText = (record.gps_valid && record.latitude !== 'NA') ? `${record.latitude}, ${record.longitude}` : 'No GPS Fix';
+      document.getElementById('modal-stat-gps').textContent = gpsText;
+      document.getElementById('modal-stat-engine').textContent = record.detector_engine || 'cv_heuristic';
+
+      // Defect boxes table
+      const dTable = document.getElementById('modal-defects-table');
+      const dets = record.detections || [];
+      if (dets.length === 0) {
+        dTable.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-500">No defects detected in this frame (Good condition).</td></tr>`;
+      } else {
+        dTable.innerHTML = dets.map((d, idx) => `
+          <tr class="hover:bg-slate-900/60">
+            <td class="py-2 px-3 text-slate-400">${idx + 1}</td>
+            <td class="py-2 px-3 font-semibold text-sky-400 capitalize">${d.class.replace('_', ' ')}</td>
+            <td class="py-2 px-3 font-mono">${Math.round(d.confidence * 100)}%</td>
+            <td class="py-2 px-3 font-mono text-[11px] text-slate-400">[${d.bbox_xyxy ? d.bbox_xyxy.join(', ') : ''}]</td>
+            <td class="py-2 px-3 font-mono text-slate-400">${d.area_pixels || '--'}</td>
+          </tr>
+        `).join('');
+      }
+
+      setModalImageView('processed');
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function setModalImageView(mode) {
+      if (!currentModalRecord) return;
+      const img = document.getElementById('modal-main-img');
+      const btnProc = document.getElementById('modal-btn-proc');
+      const btnOrig = document.getElementById('modal-btn-orig');
+      const directLink = document.getElementById('modal-direct-link');
+
+      const path = mode === 'processed' ? (currentModalRecord.processed_image_path || currentModalRecord.original_image_path) : currentModalRecord.original_image_path;
+      const fullUrl = `/files/${path}`;
+
+      img.src = fullUrl;
+      directLink.href = fullUrl;
+
+      if (mode === 'processed') {
+        btnProc.className = 'px-3 py-1 text-xs font-semibold rounded-lg bg-sky-600 text-white';
+        btnOrig.className = 'px-3 py-1 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700';
+      } else {
+        btnOrig.className = 'px-3 py-1 text-xs font-semibold rounded-lg bg-sky-600 text-white';
+        btnProc.className = 'px-3 py-1 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700';
+      }
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+      currentModalRecord = null;
+    }
+
+    async function reprocessModalItem() {
+      if (!currentModalRecord) return;
+      const btn = document.getElementById('modal-reprocess-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-sky-400 border-t-transparent rounded-full mr-1"></span> Re-analyzing...`;
+
+      try {
+        const res = await fetch(`/api/reprocess/${encodeURIComponent(currentModalRecord.image_filename)}`, { method: 'POST' });
+        if (res.ok) {
+          const updated = await res.json();
+          showToast('Image re-analyzed successfully', 'success');
+          await fetchAllData();
+          openDetailModal(updated.image_filename);
+        } else {
+          showToast('Failed to reprocess image', 'error');
+        }
+      } catch (err) {
+        showToast('Error re-analyzing', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 mr-1"></i> Re-analyze Image`;
+        lucide.createIcons();
+      }
+    }
+
+    // Delete Capture & Associated Analysis
+    async function deleteCapture(filename) {
+      if (!filename) return;
+      if (!confirm(`Are you sure you want to permanently delete "${filename}" and all its analysis data?`)) {
+        return;
+      }
+
+      showToast(`Deleting ${filename}...`, 'info');
+      try {
+        const res = await fetch(`/api/delete/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('Inspection record deleted successfully', 'success');
+          if (currentModalRecord && currentModalRecord.image_filename === filename) {
+            closeDetailModal();
+          }
+          await fetchAllData();
+        } else {
+          const err = await res.json();
+          showToast(`Delete failed: ${err.error || 'Server error'}`, 'error');
+        }
+      } catch (err) {
+        showToast('Network error while deleting record', 'error');
+      }
+    }
+
+    async function deleteModalItem() {
+      if (!currentModalRecord) return;
+      await deleteCapture(currentModalRecord.image_filename);
+    }
+
+    // Reports Management
+    async function fetchReports() {
+      const tbody = document.getElementById('reports-table-body');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch('/api/reports/list');
+        if (res.ok) {
+          const list = await res.json();
+          allReports = list || [];
+
+          if (allReports.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">No reports generated yet. Click a button above to generate one!</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = allReports.map(rep => {
+            const sc = SEV_CONFIG[rep.overall_condition] || SEV_CONFIG.Good;
+            return `
+              <tr class="hover:bg-slate-950/60 transition">
+                <td class="py-3 px-4 font-mono font-semibold text-slate-200">${rep.report_id || rep.json_file}</td>
+                <td class="py-3 px-4 font-medium text-sky-400 uppercase">${rep.type}: ${rep.period_label}</td>
+                <td class="py-3 px-4 text-slate-300">${rep.total_images}</td>
+                <td class="py-3 px-4 text-amber-400 font-bold">${rep.total_defects}</td>
+                <td class="py-3 px-4">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${sc.bg} ${sc.text} border ${sc.border}">
+                    ${rep.overall_condition}
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-slate-400">${(rep.generated_at || '').replace('T', ' ')}</td>
+                <td class="py-3 px-4 text-right space-x-1">
+                  <a href="/api/reports/download/csv/${rep.csv_file}" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs inline-flex items-center space-x-1">
+                    <i data-lucide="download" class="w-3 h-3"></i>
+                    <span>CSV</span>
+                  </a>
+                  <a href="/api/reports/download/json/${rep.json_file}" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs inline-flex items-center space-x-1">
+                    <i data-lucide="file-json" class="w-3 h-3"></i>
+                    <span>JSON</span>
+                  </a>
+                </td>
+              </tr>
+            `;
+          }).join('');
+
+          lucide.createIcons();
+        }
+      } catch (err) {
+        console.error('Reports fetch error:', err);
+      }
+    }
+
+    async function triggerGenerateReport(type) {
+      showToast(`Generating ${type} report...`, 'info');
+      try {
+        const res = await fetch('/api/reports/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: type })
+        });
+
+        if (res.ok) {
+          const rep = await res.json();
+          showToast(`${type.toUpperCase()} report generated (${rep.total_images_analyzed} frames analyzed)`, 'success');
+          fetchReports();
+        } else {
+          showToast('Failed to generate report', 'error');
+        }
+      } catch (err) {
+        showToast('Error generating report', 'error');
+      }
+    }
+
+    // Manual Upload Drag & Drop & Submissions
+    function initDropZone() {
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('manual-file-input');
+
+      if (!dropZone || !fileInput) return;
+
+      dropZone.addEventListener('click', (e) => {
+        if (!e.target.closest('#selected-file-preview button')) {
+          fileInput.click();
+        }
+      });
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-sky-500', 'bg-sky-950/20');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-sky-500', 'bg-sky-950/20');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-sky-500', 'bg-sky-950/20');
+        if (e.dataTransfer.files.length > 0) {
+          setManualFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files.length > 0) {
+        setManualFile(e.target.files[0]);
+      }
+    }
+
+    function setManualFile(file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image file', 'error');
+        return;
+      }
+      selectedManualFile = file;
+      document.getElementById('preview-name').textContent = file.name;
+      document.getElementById('preview-size').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('preview-thumb').src = e.target.result;
+        document.getElementById('selected-file-preview').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearSelectedFile(e) {
+      if (e) e.stopPropagation();
+      selectedManualFile = null;
+      document.getElementById('manual-file-input').value = '';
+      document.getElementById('selected-file-preview').classList.add('hidden');
+    }
+
+    function useBrowserLocation() {
+      if (!navigator.geolocation) {
+        showToast('Geolocation is not supported by your browser', 'error');
+        return;
+      }
+
+      showToast('Acquiring GPS location...', 'info');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          document.getElementById('manual-lat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('manual-lng').value = pos.coords.longitude.toFixed(6);
+          showToast('GPS coordinates acquired!', 'success');
+        },
+        (err) => {
+          showToast(`Location error: ${err.message}`, 'error');
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    async function submitManualUpload() {
+      if (!selectedManualFile) {
+        showToast('Please select an image first', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-submit-upload');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="inline-block animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> Analyzing Road Surface...`;
+
+      const formData = new FormData();
+      formData.append('image', selectedManualFile);
+      formData.append('camera_id', document.getElementById('manual-cam-id').value || 'MANUAL_WEB');
+
+      const lat = document.getElementById('manual-lat').value.trim();
+      const lng = document.getElementById('manual-lng').value.trim();
+      if (lat && lng) {
+        formData.append('latitude', lat);
+        formData.append('longitude', lng);
+        formData.append('gps_valid', 'true');
+      }
+
+      try {
+        const res = await fetch('/api/manual-upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          showToast('Analysis completed successfully!', 'success');
+          displayManualResults(result);
+          fetchAllData();
+        } else {
+          const err = await res.json();
+          showToast(`Upload failed: ${err.error || 'Server error'}`, 'error');
+        }
+      } catch (err) {
+        showToast('Network error during upload', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="scan" class="w-4 h-4 mr-2"></i><span>Upload & Run Defect Analysis</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function displayManualResults(result) {
+      const section = document.getElementById('manual-results-section');
+      section.classList.remove('hidden');
+
+      const sev = result.severity || 'Good';
+      const sc = SEV_CONFIG[sev] || SEV_CONFIG.Good;
+      const sevBadge = document.getElementById('manual-severity-badge');
+      sevBadge.textContent = `${sev} (Score: ${result.severity_score}/100)`;
+      sevBadge.className = `px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${sc.bg} ${sc.text} border ${sc.border}`;
+
+      document.getElementById('manual-result-orig').src = `/files/${result.original_image_path}`;
+      document.getElementById('manual-result-proc').src = `/files/${result.processed_image_path}`;
+
+      const breakdown = document.getElementById('manual-defect-breakdown');
+      breakdown.innerHTML = `
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <span class="text-xs text-slate-400 block">Potholes</span>
+          <span class="text-lg font-bold text-rose-500">${result.summary?.pothole || 0}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <span class="text-xs text-slate-400 block">Longitudinal Cracks</span>
+          <span class="text-lg font-bold text-yellow-400">${result.summary?.longitudinal_crack || 0}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <span class="text-xs text-slate-400 block">Transverse Cracks</span>
+          <span class="text-lg font-bold text-cyan-400">${result.summary?.transverse_crack || 0}</span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <span class="text-xs text-slate-400 block">Alligator Cracks</span>
+          <span class="text-lg font-bold text-orange-400">${result.summary?.alligator_crack || 0}</span>
+        </div>
+      `;
+
+      // Scroll to results
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Batch Reprocess All
+    async function batchReprocessAll() {
+      showToast('Processing all unprocessed images...', 'info');
+      try {
+        const res = await fetch('/api/process-all', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`Batch processing completed (${data.processed_count} frames)`, 'success');
+          fetchAllData();
+        } else {
+          showToast('Batch processing failed', 'error');
+        }
+      } catch (err) {
+        showToast('Error triggering batch processing', 'error');
+      }
+    }
+
+    // Toast Notification Utility
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      const msg = document.getElementById('toast-message');
+      const icon = document.getElementById('toast-icon');
+
+      msg.textContent = message;
+      if (type === 'success') {
+        icon.setAttribute('data-lucide', 'check-circle');
+        icon.className = 'w-4 h-4 text-emerald-400';
+      } else if (type === 'error') {
+        icon.setAttribute('data-lucide', 'alert-circle');
+        icon.className = 'w-4 h-4 text-rose-500';
+      } else {
+        icon.setAttribute('data-lucide', 'info');
+        icon.className = 'w-4 h-4 text-sky-400';
+      }
+      lucide.createIcons();
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+  </script>
+
+</body>
+</html>

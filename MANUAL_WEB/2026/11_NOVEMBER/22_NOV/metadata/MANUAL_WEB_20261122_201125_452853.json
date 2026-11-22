@@ -1,0 +1,19 @@
+{
+    "camera_id": "MANUAL_WEB",
+    "image_filename": "MANUAL_WEB_20261122_201125_452853.jpg",
+    "capture_timestamp": "2026-11-22T20:11:25",
+    "server_received_timestamp": "2026-11-22T20:11:25",
+    "latitude": "NA",
+    "longitude": "NA",
+    "gps_valid": false,
+    "image_size_bytes": 56153,
+    "image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/original/MANUAL_WEB_20261122_201125_452853.jpg",
+    "processing_status": "completed",
+    "source": "manual_dashboard_upload",
+    "processed_timestamp": "2026-11-22T20:11:25",
+    "severity": "Critical",
+    "severity_score": 57.8,
+    "defect_count": 2,
+    "processed_image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/processed/MANUAL_WEB_20261122_201125_452853.jpg",
+    "detection_json_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/detections/MANUAL_WEB_20261122_201125_452853.json"
+}

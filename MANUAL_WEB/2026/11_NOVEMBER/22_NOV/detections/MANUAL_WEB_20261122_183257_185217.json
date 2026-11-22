@@ -1,0 +1,45 @@
+{
+    "camera_id": "MANUAL_WEB",
+    "image_filename": "MANUAL_WEB_20261122_183257_185217.jpg",
+    "original_image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/original/MANUAL_WEB_20261122_183257_185217.jpg",
+    "processed_image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/processed/MANUAL_WEB_20261122_183257_185217.jpg",
+    "capture_timestamp": "2026-11-22T18:32:57",
+    "processed_timestamp": "2026-11-22T19:56:25",
+    "latitude": "NA",
+    "longitude": "NA",
+    "gps_valid": false,
+    "detector_engine": "ensemble_yolo",
+    "defect_count": 2,
+    "severity": "Fair",
+    "severity_score": 19.9,
+    "summary": {
+        "pothole": 0,
+        "longitudinal_crack": 1,
+        "transverse_crack": 1,
+        "alligator_crack": 0
+    },
+    "detections": [
+        {
+            "class": "longitudinal_crack",
+            "confidence": 0.774,
+            "bbox_xyxy": [
+                309,
+                102,
+                471,
+                553
+            ],
+            "area_pixels": 73062
+        },
+        {
+            "class": "transverse_crack",
+            "confidence": 0.297,
+            "bbox_xyxy": [
+                236,
+                100,
+                299,
+                119
+            ],
+            "area_pixels": 1197
+        }
+    ]
+}
