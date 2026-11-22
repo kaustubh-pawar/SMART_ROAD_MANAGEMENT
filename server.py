@@ -20,9 +20,26 @@ from flask import Flask, request, jsonify, render_template, send_from_directory,
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/ultralytics")
 
-# Import detection and reporting modules
-import process_image
+# Import detection and reporting modules safely
+try:
+    import process_image
+except Exception as _e:
+    print(f"[Server Warning] process_image deferred on startup ({_e})")
+    process_image = None
+
 import reports
+
+def get_image_processor():
+    global process_image
+    if process_image is None:
+        import process_image as pi
+        process_image = pi
+    else:
+        try:
+            importlib.reload(process_image)
+        except Exception:
+            pass
+    return process_image
 
 # Project root directory
 BASE_DIR = Path(__file__).resolve().parent
@@ -165,8 +182,8 @@ def upload_image():
     # Run defect detection and annotation immediately
     detection_result = {}
     try:
-        importlib.reload(process_image)
-        detection_result = process_image.process_single_image(image_path, metadata_path)
+        proc = get_image_processor()
+        detection_result = proc.process_single_image(image_path, metadata_path)
     except Exception as e:
         print(f"[Upload Error] Detection failed on {image_filename}: {e}")
 
@@ -261,8 +278,8 @@ def manual_upload():
 
     # Run detection
     try:
-        importlib.reload(process_image)
-        detection_result = process_image.process_single_image(image_path, metadata_path)
+        proc = get_image_processor()
+        detection_result = proc.process_single_image(image_path, metadata_path)
     except Exception as e:
         return jsonify({"error": f"Defect analysis failed: {str(e)}"}), 500
 
@@ -362,8 +379,8 @@ def reprocess_record(image_filename):
 
     target_img = base_images[0]
     try:
-        importlib.reload(process_image)
-        result = process_image.process_single_image(target_img)
+        proc = get_image_processor()
+        result = proc.process_single_image(target_img)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": f"Reprocessing failed: {str(e)}"}), 500

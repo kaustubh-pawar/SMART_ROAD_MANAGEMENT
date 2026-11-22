@@ -14,7 +14,26 @@ import sys
 import json
 from pathlib import Path
 from datetime import datetime
-import cv2
+# Ensure headless environment flags before OpenCV / Torch load
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/ultralytics")
+
+try:
+    import cv2
+except ImportError as _cv_err:
+    if "libGL.so.1" in str(_cv_err) or "shared object file" in str(_cv_err):
+        import subprocess
+        print(f"[OpenCV Loader] Caught shared library error ({_cv_err}). Auto-healing with opencv-python-headless...")
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "opencv-python", "opencv-contrib-python"], check=False)
+            subprocess.run([sys.executable, "-m", "pip", "install", "--no-cache-dir", "opencv-python-headless"], check=True)
+            import cv2
+            print("[OpenCV Loader] Successfully auto-healed cv2 import with opencv-python-headless!")
+        except Exception as _heal_err:
+            raise ImportError(f"OpenCV missing libGL.so.1 and auto-heal failed: {_heal_err}") from _cv_err
+    else:
+        raise
+
 import numpy as np
 
 # Base directory for the project
