@@ -1,13 +1,13 @@
 # Nixpacks configuration for Railway deployment
 [phases.setup]
-nixPkgs = ["...", "libGL", "glib", "libSM", "libXext", "libXrender"]
-aptPkgs = ["...", "libgl1", "libglib2.0-0", "libgomp1", "ffmpeg"]
+nixPkgs = ["libGL", "glib", "libSM", "libXext", "libXrender"]
+aptPkgs = ["libgl1", "libglib2.0-0", "libgomp1", "ffmpeg"]
 
 [phases.install]
 cmds = [
   "pip install --no-cache-dir -r requirements.txt",
-  "pip uninstall -y opencv-python || true",
-  "pip install --no-cache-dir opencv-python-headless"
+  "pip uninstall -y opencv-python opencv-contrib-python || true",
+  "pip install --no-cache-dir --force-reinstall opencv-python-headless"
 ]
 
 [start]
