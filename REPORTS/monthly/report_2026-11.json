@@ -2,7 +2,7 @@
     "report_id": "REP_MONTHLY_202611",
     "period_type": "monthly",
     "period_label": "2026-11",
-    "generated_at": "2026-11-22T21:44:47",
+    "generated_at": "2026-11-22T23:47:42",
     "total_images_analyzed": 27,
     "total_defects_detected": 24,
     "defect_density_per_image": 0.89,
@@ -33,13 +33,13 @@
         }
     },
     "camera_breakdown": {
-        "MANUAL_WEB": {
-            "images": 16,
-            "defects": 24
-        },
         "CAM_001": {
             "images": 11,
             "defects": 0
+        },
+        "MANUAL_WEB": {
+            "images": 16,
+            "defects": 24
         }
     },
     "gps_tagged_images": 1,
@@ -47,22 +47,40 @@
     "hotspots": [],
     "records": [
         {
-            "image_filename": "MANUAL_WEB_20261122_201125_452853.jpg",
-            "camera_id": "MANUAL_WEB",
-            "timestamp": "2026-11-22T08:11:25",
-            "severity": "Critical",
-            "severity_score": 57.8,
-            "defect_count": 2,
+            "image_filename": "CAM_001_20261122_165002_000000.jpg",
+            "camera_id": "CAM_001",
+            "timestamp": "2026-11-22T08:50:02",
+            "severity": "Good",
+            "severity_score": 0.1,
+            "defect_count": 0,
             "summary": {
-                "pothole": 1,
+                "pothole": 0,
                 "longitudinal_crack": 0,
                 "transverse_crack": 0,
-                "alligator_crack": 1
+                "alligator_crack": 0
+            },
+            "gps_valid": true,
+            "latitude": "18.592561",
+            "longitude": "74.002124",
+            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_165002_000000.jpg"
+        },
+        {
+            "image_filename": "CAM_001_20261122_164951_000000.jpg",
+            "camera_id": "CAM_001",
+            "timestamp": "2026-11-22T08:49:51",
+            "severity": "Good",
+            "severity_score": 0.1,
+            "defect_count": 0,
+            "summary": {
+                "pothole": 0,
+                "longitudinal_crack": 0,
+                "transverse_crack": 0,
+                "alligator_crack": 0
             },
             "gps_valid": false,
             "latitude": "NA",
             "longitude": "NA",
-            "processed_image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/processed/MANUAL_WEB_20261122_201125_452853.jpg"
+            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_164951_000000.jpg"
         },
         {
             "image_filename": "CAM_001_20261122_163827_000000.jpg",
@@ -81,60 +99,6 @@
             "latitude": "NA",
             "longitude": "NA",
             "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163827_000000.jpg"
-        },
-        {
-            "image_filename": "CAM_001_20261122_163043_000000.jpg",
-            "camera_id": "CAM_001",
-            "timestamp": "2026-11-22T08:30:43",
-            "severity": "Good",
-            "severity_score": 0.3,
-            "defect_count": 0,
-            "summary": {
-                "pothole": 0,
-                "longitudinal_crack": 0,
-                "transverse_crack": 0,
-                "alligator_crack": 0
-            },
-            "gps_valid": false,
-            "latitude": "NA",
-            "longitude": "NA",
-            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163043_000000.jpg"
-        },
-        {
-            "image_filename": "CAM_001_20261122_170837_000000.jpg",
-            "camera_id": "CAM_001",
-            "timestamp": "2026-11-22T08:08:37",
-            "severity": "Good",
-            "severity_score": 0.1,
-            "defect_count": 0,
-            "summary": {
-                "pothole": 0,
-                "longitudinal_crack": 0,
-                "transverse_crack": 0,
-                "alligator_crack": 0
-            },
-            "gps_valid": false,
-            "latitude": "NA",
-            "longitude": "NA",
-            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_170837_000000.jpg"
-        },
-        {
-            "image_filename": "CAM_001_20261122_163534_000000.jpg",
-            "camera_id": "CAM_001",
-            "timestamp": "2026-11-22T08:35:34",
-            "severity": "Good",
-            "severity_score": 0.2,
-            "defect_count": 0,
-            "summary": {
-                "pothole": 0,
-                "longitudinal_crack": 0,
-                "transverse_crack": 0,
-                "alligator_crack": 0
-            },
-            "gps_valid": false,
-            "latitude": "NA",
-            "longitude": "NA",
-            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163534_000000.jpg"
         },
         {
             "image_filename": "CAM_001_20261122_163756_000000.jpg",
@@ -191,11 +155,29 @@
             "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163251_000000.jpg"
         },
         {
-            "image_filename": "CAM_001_20261122_165002_000000.jpg",
+            "image_filename": "MANUAL_WEB_20261122_201125_452853.jpg",
+            "camera_id": "MANUAL_WEB",
+            "timestamp": "2026-11-22T08:11:25",
+            "severity": "Critical",
+            "severity_score": 57.8,
+            "defect_count": 2,
+            "summary": {
+                "pothole": 1,
+                "longitudinal_crack": 0,
+                "transverse_crack": 0,
+                "alligator_crack": 1
+            },
+            "gps_valid": false,
+            "latitude": "NA",
+            "longitude": "NA",
+            "processed_image_path": "MANUAL_WEB/2026/11_NOVEMBER/22_NOV/processed/MANUAL_WEB_20261122_201125_452853.jpg"
+        },
+        {
+            "image_filename": "CAM_001_20261122_163043_000000.jpg",
             "camera_id": "CAM_001",
-            "timestamp": "2026-11-22T08:50:02",
+            "timestamp": "2026-11-22T08:30:43",
             "severity": "Good",
-            "severity_score": 0.1,
+            "severity_score": 0.3,
             "defect_count": 0,
             "summary": {
                 "pothole": 0,
@@ -203,15 +185,15 @@
                 "transverse_crack": 0,
                 "alligator_crack": 0
             },
-            "gps_valid": true,
-            "latitude": "18.592561",
-            "longitude": "74.002124",
-            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_165002_000000.jpg"
+            "gps_valid": false,
+            "latitude": "NA",
+            "longitude": "NA",
+            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163043_000000.jpg"
         },
         {
-            "image_filename": "CAM_001_20261122_164951_000000.jpg",
+            "image_filename": "CAM_001_20261122_170837_000000.jpg",
             "camera_id": "CAM_001",
-            "timestamp": "2026-11-22T08:49:51",
+            "timestamp": "2026-11-22T08:08:37",
             "severity": "Good",
             "severity_score": 0.1,
             "defect_count": 0,
@@ -224,7 +206,25 @@
             "gps_valid": false,
             "latitude": "NA",
             "longitude": "NA",
-            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_164951_000000.jpg"
+            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_170837_000000.jpg"
+        },
+        {
+            "image_filename": "CAM_001_20261122_163534_000000.jpg",
+            "camera_id": "CAM_001",
+            "timestamp": "2026-11-22T08:35:34",
+            "severity": "Good",
+            "severity_score": 0.2,
+            "defect_count": 0,
+            "summary": {
+                "pothole": 0,
+                "longitudinal_crack": 0,
+                "transverse_crack": 0,
+                "alligator_crack": 0
+            },
+            "gps_valid": false,
+            "latitude": "NA",
+            "longitude": "NA",
+            "processed_image_path": "CAM_001/2026/11_NOVEMBER/22_NOV/processed/CAM_001_20261122_163534_000000.jpg"
         },
         {
             "image_filename": "CAM_001_20261122_163812_000000.jpg",

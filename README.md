@@ -122,6 +122,11 @@ SMART_ROAD_MANAGEMENT/
 
 > **Flashing Note:** Connect **GPIO 0 to GND** before powering on to flash firmware via FTDI. Disconnect GPIO 0 from GND and reset the board to run normally.
 
+### Hardware Support & Connect Details
+- **Team / Organization:** HYDL
+- **Contact Number:** 9373529729
+- **Assistance:** ESP32-CAM circuit setup, NEO-6M GPS integration, field testing, and troubleshooting.
+
 ---
 
 ## 5. Local Setup & Usage
