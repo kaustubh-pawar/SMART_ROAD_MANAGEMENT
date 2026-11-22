@@ -1,14 +1,18 @@
 # Nixpacks configuration for Railway deployment
-# Ensures OpenGL and GLib system libraries are present for OpenCV and Ultralytics YOLO
-
 [phases.setup]
-aptPkgs = [
-  "...",
-  "libgl1",
-  "libglib2.0-0",
-  "libgomp1",
-  "ffmpeg"
+nixPkgs = ["...", "libGL", "glib", "libSM", "libXext", "libXrender"]
+aptPkgs = ["...", "libgl1", "libglib2.0-0", "libgomp1", "ffmpeg"]
+
+[phases.install]
+cmds = [
+  "pip install --no-cache-dir -r requirements.txt",
+  "pip uninstall -y opencv-python || true",
+  "pip install --no-cache-dir opencv-python-headless"
 ]
 
 [start]
 cmd = "gunicorn --bind 0.0.0.0:$PORT server:app --workers 1 --threads 4 --timeout 120"
+
+[variables]
+QT_QPA_PLATFORM = "offscreen"
+YOLO_CONFIG_DIR = "/tmp/ultralytics"
