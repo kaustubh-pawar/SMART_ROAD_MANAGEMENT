@@ -4,15 +4,20 @@ FROM python:3.11-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5001
+ENV QT_QPA_PLATFORM=offscreen
+ENV YOLO_CONFIG_DIR=/tmp/ultralytics
 
 WORKDIR /app
 
 # Install system dependencies for OpenCV and image operations
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
     libglib2.0-0 \
+    libgomp1 \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

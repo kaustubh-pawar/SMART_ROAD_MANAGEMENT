@@ -16,6 +16,10 @@ from pathlib import Path
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, send_from_directory, abort
 
+# Ensure headless environment flags for cloud containers
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/ultralytics")
+
 # Import detection and reporting modules
 import process_image
 import reports
